@@ -9,29 +9,27 @@ export class PatientsService {
     @InjectModel(Patient.name) private patientModel: Model<PatientDocument>,
   ) {}
 
-  async findAll(page = 1, limit = 10) {
+  async findAll(doctorId: string, page = 1, limit = 10) {
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
-      this.patientModel.find().skip(skip).limit(limit).exec(),
-      this.patientModel.countDocuments(),
+      this.patientModel.find({ doctorId }).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
+      this.patientModel.countDocuments({ doctorId }),
     ]);
     return { data, total, page, limit };
   }
 
-  async search(q: string) {
+  async search(doctorId: string, q: string) {
     return this.patientModel.find({
-      $or: [
-        { nombre: { $regex: q, $options: 'i' } },
-        { apellidos: { $regex: q, $options: 'i' } },
-      ],
+      doctorId,
+      nombreCompleto: { $regex: q, $options: 'i' }
     }).exec();
   }
 
-  async findOne(id: string) {
-    return this.patientModel.findById(id).exec();
+  async findOne(id: string, doctorId: string) {
+    return this.patientModel.findOne({ _id: id, doctorId }).exec();
   }
 
-  async create(data: { nombre: string; fechaNacimiento: Date }) {
+  async create(data: Partial<Patient>) {
     const patient = new this.patientModel(data);
     return patient.save();
   }
