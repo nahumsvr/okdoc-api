@@ -44,6 +44,13 @@ export class Consultation {
   // Auditoría de campos generados por IA
   @Prop({ type: [String], default: [] })
   camposGeneradosPorIA: string[];
+
+  @Prop({ type: Object })
+  formDataIA: {
+    identificacion?: Record<string, any>;
+    historia_clinica?: Record<string, any>;
+    hospitalizacion?: Record<string, any>;
+  };
 }
 
 export const ConsultationSchema = SchemaFactory.createForClass(Consultation);

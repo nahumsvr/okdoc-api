@@ -21,6 +21,11 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
+  @Post('auto-register')
+  autoRegister(@Body() registerDto: RegisterDto) {
+    return this.authService.autoRegister(registerDto);
+  }
+
   @HttpCode(HttpStatus.OK)
   @Post('login')
   login(@Body() loginDto: LoginDto) {

@@ -13,7 +13,7 @@ export class UsersService {
     return this.userModel.findOne({ correo }).exec();
   }
 
-  async create(data: { nombreCompleto: string; correo: string; contrasena: string }) {
+  async create(data: Partial<User>) {
     const user = new this.userModel(data);
     return user.save();
   }

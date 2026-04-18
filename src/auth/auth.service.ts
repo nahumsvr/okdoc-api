@@ -28,6 +28,8 @@ export class AuthService {
       nombreCompleto: registerDto.name,
       correo: registerDto.email,
       contrasena: hashedPassword,
+      registrationMethod: 'MANUAL',
+      isCompleted: true, // Asumimos que un registro manual está completo
     });
 
     return {
@@ -36,6 +38,34 @@ export class AuthService {
         name: newUser.nombreCompleto,
         email: newUser.correo,
       },
+    };
+  }
+
+  async autoRegister(registerDto: RegisterDto) {
+    const existingUser = await this.usersService.findByEmail(registerDto.email);
+    if (existingUser) {
+      throw new ConflictException('El correo ya está en uso');
+    }
+
+    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+
+    const newUser = await this.usersService.create({
+      nombreCompleto: registerDto.name,
+      correo: registerDto.email,
+      contrasena: hashedPassword,
+      registrationMethod: 'AUTO',
+      isCompleted: false, // Perfil no completo en auto-registro
+    });
+
+    const payload = {
+      sub: newUser._id,
+      email: newUser.correo,
+      name: newUser.nombreCompleto,
+    };
+
+    return {
+      correo: newUser.correo,
+      jwt: await this.jwtService.signAsync(payload),
     };
   }
 
