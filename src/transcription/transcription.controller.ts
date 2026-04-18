@@ -1,34 +1,41 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Post, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TranscriptionService } from './transcription.service';
-import { CreateTranscriptionDto } from './dto/create-transcription.dto';
-import { UpdateTranscriptionDto } from './dto/update-transcription.dto';
+import { ExtractionService } from '../extraction/extraction.service';
 
 @Controller('transcription')
 export class TranscriptionController {
-  constructor(private readonly transcriptionService: TranscriptionService) {}
+  constructor(
+    private readonly transcriptionService: TranscriptionService,
+    private readonly extractionService: ExtractionService,
+  ) {}
 
-  @Post()
-  create(@Body() createTranscriptionDto: CreateTranscriptionDto) {
-    return this.transcriptionService.create(createTranscriptionDto);
-  }
+  @Post('process')
+  @UseInterceptors(FileInterceptor('file'))
+  async processAudio(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('El archivo de audio es requerido');
+    }
 
-  @Get()
-  findAll() {
-    return this.transcriptionService.findAll();
-  }
+    // Detectar si el archivo es MP3 o WEBM para avisarle a Google Cloud
+    let encoding = 'WEBM_OPUS';
+    if (file.mimetype.includes('mp3') || file.mimetype.includes('mpeg') || file.originalname.endsWith('.mp3')) {
+      encoding = 'MP3';
+    }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.transcriptionService.findOne(+id);
-  }
+    // 1. Convertir audio a texto usando Google Cloud Speech
+    const transcriptionText = await this.transcriptionService.transcribeAudio(file.buffer, encoding);
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateTranscriptionDto: UpdateTranscriptionDto) {
-    return this.transcriptionService.update(+id, updateTranscriptionDto);
-  }
+    if (!transcriptionText || transcriptionText.trim() === '') {
+      throw new BadRequestException('No se detectó habla o no se pudo transcribir el audio');
+    }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.transcriptionService.remove(+id);
+    // 2. Extraer datos estructurados con Gemini
+    const structuredData = await this.extractionService.extractFromTranscription(transcriptionText);
+
+    return {
+      transcription: transcriptionText,
+      data: structuredData,
+    };
   }
 }

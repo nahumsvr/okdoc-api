@@ -1,26 +1,125 @@
-import { Injectable } from '@nestjs/common';
-import { CreateExtractionDto } from './dto/create-extraction.dto';
-import { UpdateExtractionDto } from './dto/update-extraction.dto';
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 @Injectable()
 export class ExtractionService {
-  create(createExtractionDto: CreateExtractionDto) {
-    return 'This action adds a new extraction';
+  private genAI: GoogleGenerativeAI;
+  private model: any;
+
+  constructor(private configService: ConfigService) {
+    const apiKey = this.configService.get<string>('GEMINI_API_KEY') || '';
+    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   }
 
-  findAll() {
-    return `This action returns all extraction`;
+  private readonly MEDICAL_SCHEMA = `{
+  "identificacion": {
+    "tipo_tramite": "Programación de cirugía / Tratamiento médico / Auxiliar diagnóstico / Reembolso",
+    "fecha_solicitud": "DD/MM/AAAA",
+    "empresa": "string",
+    "id_numero": "string",
+    "nombre_titular": "string",
+    "nombre_afectado": "string",
+    "fecha_nacimiento": "DD/MM/AAAA",
+    "edad": "number",
+    "sexo": "F / M",
+    "estado_civil": "string",
+    "telefonos": "string"
+  },
+  "historia_clinica": {
+    "causa_atencion": "Embarazo / Enfermedad / Accidente",
+    "antecedentes": "string",
+    "padecimiento_actual": "string",
+    "fecha_inicio_sintomas": "DD/MM/AAAA",
+    "signos_vitales": { "peso_kg": "number", "ta_mmhg": "string", "talla_cm": "number" },
+    "diagnostico_cie10": "string",
+    "fecha_diagnostico": "DD/MM/AAAA",
+    "tipo_congenito_adquirido": "Congénito / Adquirido",
+    "tipo_agudo_cronico": "Agudo / Crónico",
+    "resultados_exploracion_estudios": "string",
+    "tratamiento_cpt": "string"
+  },
+  "hospitalizacion": {
+    "complicaciones": "boolean",
+    "desc_complicaciones_obs": "string",
+    "datos_hospital": { "nombre": "string", "ciudad": "string", "estado": "string" },
+    "fechas_ingreso_egreso": "string",
+    "tipo_estancia": "Hospitalización / Urgencia / Corta estancia / Ambulatoria",
+    "medico_tratante": { "nombre": "string", "especialidad": "string", "cedula": "string", "red": "boolean" },
+    "honorarios": "string"
+  }
+}`;
+
+  // PROBLEMA 1: Extrae datos de transcripción de consulta médica
+  async extractFromTranscription(transcriptionText: string) {
+    const prompt = `
+Actúa como un transcriptor médico de alta precisión. Tu tarea es extraer información de una conversación y devolverla únicamente en formato JSON siguiendo el esquema proporcionado.
+
+Instrucciones de llenado:
+- Si la información no se menciona explícitamente o tienes dudas, pon null.
+- Para campos de Opción Múltiple, selecciona solo una de las opciones dadas. Si el médico dice algo parecido pero no igual, normalízalo a la opción válida.
+- En Signos Vitales, extrae solo los números.
+- En Diagnóstico, intenta añadir el código CIE-10 si el médico menciona la enfermedad.
+- Omite campos que sean null para que el JSON sea más limpio.
+
+Esquema JSON a seguir:
+${this.MEDICAL_SCHEMA}
+
+TRANSCRIPCIÓN DE LA CONSULTA:
+${transcriptionText}
+
+Responde ÚNICAMENTE con el JSON válido, sin texto adicional, sin backticks, sin comentarios.
+    `;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const text = result.response.text().trim();
+      const clean = text.replace(/```json|```/g, '').trim();
+      return JSON.parse(clean);
+    } catch (error) {
+      throw new BadRequestException(
+        'Error al procesar la transcripción: ' + error.message,
+      );
+    }
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} extraction`;
-  }
+  // PROBLEMA 2: Extrae datos de documento de identidad (INE, CURP, Acta)
+  async extractFromDocument(base64Image: string, mimeType: string = 'image/jpeg') {
+    const prompt = `
+Eres un asistente especializado en extraer información de documentos oficiales mexicanos (INE, CURP, Acta de Nacimiento).
+Extrae los datos visibles y llénalos en el siguiente esquema JSON.
+Si un dato no es visible o no aplica, usa null.
 
-  update(id: number, updateExtractionDto: UpdateExtractionDto) {
-    return `This action updates a #${id} extraction`;
-  }
+Responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin backticks:
+{
+  "nombre": null,
+  "apellido_paterno": null,
+  "apellido_materno": null,
+  "fecha_nacimiento": null,
+  "sexo": "F / M",
+  "curp": null,
+  "clave_elector": null,
+  "domicilio": null,
+  "municipio": null,
+  "estado": null,
+  "nacionalidad": null,
+  "tipo_documento": "INE / CURP / ACTA_NACIMIENTO / OTRO"
+}
+    `;
 
-  remove(id: number) {
-    return `This action removes a #${id} extraction`;
+    try {
+      const result = await this.model.generateContent([
+        prompt,
+        { inlineData: { mimeType, data: base64Image } },
+      ]);
+      const text = result.response.text().trim();
+      const clean = text.replace(/```json|```/g, '').trim();
+      return JSON.parse(clean);
+    } catch (error) {
+      throw new BadRequestException(
+        'Error al procesar el documento: ' + error.message,
+      );
+    }
   }
 }
