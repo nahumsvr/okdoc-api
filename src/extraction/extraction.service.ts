@@ -139,4 +139,25 @@ Responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin backticks:
       );
     }
   }
+
+  // Pule la transcripción cruda que contiene repeticiones
+  async polishTranscription(rawText: string): Promise<string> {
+    const prompt = `
+Eres un asistente médico experto. A continuación te presentaré una transcripción en crudo (con partes repetidas, traslapadas o marcas como [Voz] y [Nota] porque se generó en tiempo real). 
+Tu tarea es limpiarla, eliminar todas las repeticiones y entregar un solo texto fluido, coherente y fácil de leer, manteniendo absolutamente toda la información médica, datos del paciente y notas originales, y sin inventar datos.
+
+TRANSCRIPCIÓN EN CRUDO:
+${rawText}
+
+Responde ÚNICAMENTE con el texto limpio y pulido, sin formato adicional, comentarios ni introducciones.
+    `;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      return result.response.text().trim();
+    } catch (error) {
+      console.error('Error al pulir la transcripción', error);
+      return rawText; // Retorna el texto original si falla
+    }
+  }
 }

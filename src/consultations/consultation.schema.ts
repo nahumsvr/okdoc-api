@@ -46,6 +46,10 @@ export class Consultation {
   // Auditoría de campos generados por IA
   @Prop({ type: [String], default: [] })
   camposGeneradosPorIA: string[];
+
+  // Transcripción final ya pulida por IA
+  @Prop()
+  textoTranscrito: string;
 }
 
 export const ConsultationSchema = SchemaFactory.createForClass(Consultation);

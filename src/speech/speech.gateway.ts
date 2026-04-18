@@ -106,10 +106,15 @@ export class SpeechGateway implements OnGatewayDisconnect {
       // Limpia la sesión de memoria
       this.sessions.delete(data.sessionId);
 
-      // Extrae el formulario con Gemini usando el contenido unificado
-      const formData =
-        await this.extractionService.extractFromTranscription(fullContent);
+      // Pule la transcripción con Gemini para quitar redundancias o duplicados
+      const polishedContent =
+        await this.extractionService.polishTranscription(fullContent);
+      console.log(polishedContent);
 
+      // Extrae el formulario con Gemini usando el contenido pulido
+      const formData =
+        await this.extractionService.extractFromTranscription(polishedContent);
+      console.log(formData);
       // --- GUARDAR EN BASE DE DATOS ---
 
       // 1. Crear la consulta (Consultation)
@@ -117,27 +122,31 @@ export class SpeechGateway implements OnGatewayDisconnect {
         patientId: data.patientId,
         doctorId: data.doctorId,
         status: 'draft',
-        motivoConsulta: formData?.motivoConsulta || '',
-        sintomas: formData?.sintomas || '',
-        diagnostico: formData?.diagnostico || '',
-        tratamiento: formData?.tratamiento || '',
+        motivoConsulta: formData?.historia_clinica?.causa_atencion || '',
+        sintomas: formData?.historia_clinica?.padecimiento_actual || '',
+        diagnostico: formData?.historia_clinica?.diagnostico_cie10 || '',
+        tratamiento: formData?.historia_clinica?.tratamiento_cpt || '',
         medicamentos: formData?.medicamentos || '',
-        observaciones: formData?.observaciones || '',
+        observaciones: formData?.historia_clinica?.antecedentes || '',
+        extractedData: formData,
+        textoTranscrito: polishedContent,
         camposGeneradosPorIA: Object.keys(formData || {}),
       });
+      console.log(consultation);
 
       const savedConsultation = await consultation.save();
+      console.log(savedConsultation);
 
       // 2. Guardar el contenido final ligado a la consulta
       await this.transcriptionsService.saveFinalTranscription(
         savedConsultation._id.toString(),
-        fullContent,
+        polishedContent,
       );
 
       // Devuelve el resultado final al front
       client.emit('form_complete', {
         consultationId: savedConsultation._id,
-        transcription: fullContent,
+        transcription: polishedContent,
         form: formData,
       });
     } catch (error) {
