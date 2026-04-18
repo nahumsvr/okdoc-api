@@ -9,7 +9,6 @@ import type { Response } from 'express';
 export class ConsultationsController {
   constructor(private readonly consultationsService: ConsultationsService) { }
 
-  // Función privada para extraer el ID del doctor sin importar cómo venga en el token
   private getDoctorId(user: any): string {
     const id = user?.sub || user?.id || user?._id || user?.userId;
     if (!id) {

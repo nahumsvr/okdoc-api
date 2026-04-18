@@ -7,13 +7,10 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { SpeechService } from './speech.service';
 import { ExtractionService } from '../extraction/extraction.service';
-import { Consultation } from '../consultations/consultation.schema';
-// 1. IMPORTAMOS TU NUEVO SERVICIO
 import { TranscriptionsService } from '../transcriptions/transcriptions.service';
+import { ConsultationsService } from '../consultations/consultations.service';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class SpeechGateway implements OnGatewayDisconnect {
@@ -25,14 +22,11 @@ export class SpeechGateway implements OnGatewayDisconnect {
   constructor(
     private speechService: SpeechService,
     private extractionService: ExtractionService,
-    // 2. LO INYECTAMOS AQUÍ
     private transcriptionsService: TranscriptionsService,
-    @InjectModel(Consultation.name)
-    private consultationModel: Model<Consultation>,
+    private consultationsService: ConsultationsService,
   ) { }
 
   handleDisconnect(client: Socket) {
-    // Nota: client.id no es igual a sessionId, pero lo dejamos así por velocidad en el hackathon
     this.sessions.delete(client.id);
   }
 
@@ -58,7 +52,7 @@ export class SpeechGateway implements OnGatewayDisconnect {
 
   @SubscribeMessage('finish_session')
   async handleFinish(
-    @MessageBody() data: { sessionId: string; doctorId?: string; patientId?: string },
+    @MessageBody() data: { sessionId: string; consultationId: string },
     @ConnectedSocket() client: Socket,
   ) {
     try {
@@ -74,34 +68,20 @@ export class SpeechGateway implements OnGatewayDisconnect {
 
       const formData = await this.extractionService.extractFromTranscription(fullTranscription);
 
-      // Guardar consulta en MongoDB
-      const consultation = new this.consultationModel({
-        doctorId: data?.doctorId,
-        patientId: data?.patientId,
-        estado: 'DRAFT',
-        motivoConsulta: formData?.historia_clinica?.padecimiento_actual,
-        diagnostico: formData?.historia_clinica?.diagnostico_cie10,
-        tratamiento: formData?.historia_clinica?.tratamiento_cpt,
-        formDataIA: formData,
-        camposGeneradosPorIA: Object.keys(formData).flatMap((section) =>
-          Object.keys(formData[section] || {}),
-        ),
-      });
+      const updatedConsultation = await this.consultationsService.updateWithAIResults(
+        data.consultationId,
+        formData
+      );
 
-      const saved = await consultation.save();
-
-      // 3. ¡GUARDAMOS LA TRANSCRIPCIÓN LIGADA A LA CONSULTA!
       await this.transcriptionsService.saveFinalTranscription(
-        saved._id.toString(),
+        data.consultationId,
         fullTranscription
       );
 
-      // Emitir entidades campo por campo
       this.emitEntities(client, formData);
 
-      // Emitir formulario completo
       client.emit('form_complete', {
-        consultationId: saved._id,
+        consultationId: data.consultationId,
         transcription: fullTranscription,
         form: formData,
       });

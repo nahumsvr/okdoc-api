@@ -6,6 +6,7 @@ import { SpeechController } from './speech.controller';
 import { ExtractionModule } from '../extraction/extraction.module';
 import { Consultation, ConsultationSchema } from '../consultations/consultation.schema';
 import { TranscriptionsModule } from '../transcriptions/transcriptions.module';
+import { ConsultationsModule } from 'src/consultations/consultations.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { TranscriptionsModule } from '../transcriptions/transcriptions.module';
       { name: Consultation.name, schema: ConsultationSchema }
     ]),
     TranscriptionsModule,
+    ConsultationsModule,
   ],
   controllers: [SpeechController],
   providers: [SpeechGateway, SpeechService],
