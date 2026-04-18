@@ -2,8 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Consultation, ConsultationDocument } from './consultation.schema';
-import PDFDocument = require('pdfkit');
-
+import PDFDocument from 'pdfkit';
 @Injectable()
 export class ConsultationsService {
   constructor(
@@ -14,7 +13,7 @@ export class ConsultationsService {
     return this.consultationModel
       .find({ doctorId })
       .sort({ createdAt: -1 })
-      .populate('patientId', 'nombreCompleto') // Para mostrar el nombre del paciente
+      .populate('patientId', 'nombreCompleto')
       .exec();
   }
 
@@ -33,13 +32,24 @@ export class ConsultationsService {
     return consultation;
   }
 
-  async create(data: Partial<Consultation>) {
-    // Fuerzo a que toda nueva consulta comience aprobada si viene llena, o DRAFT si no
+  async create(doctorId: string, data: any) {
     const consultation = new this.consultationModel({
       ...data,
-      estado: data.estado || 'APPROVED'
+      doctorId: doctorId,
+      estado: data.estado || 'PENDIENTE',
     });
     return consultation.save();
+  }
+
+  async updateWithAIResults(id: string, formDataIA: any) {
+    return this.consultationModel.findByIdAndUpdate(
+      id,
+      {
+        formDataIA: formDataIA,
+        estado: 'COMPLETADO'
+      },
+      { new: true }
+    ).exec();
   }
 
   async getPrefillData(patientId: string, doctorId: string) {
@@ -48,7 +58,6 @@ export class ConsultationsService {
       .sort({ createdAt: -1 })
       .exec();
 
-    // Retorna una base para el nuevo formulario, copiando posibles diagnósticos crónicos o historial útil
     return {
       motivoConsulta: '',
       sintomas: '',
@@ -68,7 +77,8 @@ export class ConsultationsService {
     doc.fontSize(20).text('Receta Médica', { align: 'center' });
     doc.moveDown();
 
-    doc.fontSize(12).text(`Fecha: ${new Date(consultation.fecha).toLocaleDateString()}`);
+    const fecha = consultation.fecha ? new Date(consultation.fecha) : new Date();
+    doc.fontSize(12).text(`Fecha: ${fecha.toLocaleDateString()}`);
     doc.text(`Paciente: ${patient?.nombreCompleto || 'Desconocido'}`);
     doc.moveDown();
 

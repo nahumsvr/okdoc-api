@@ -18,7 +18,6 @@ export class PatientsController {
   @Post()
   @Auth()
   async create(@CurrentUser() user: any, @Body() body: any) {
-    console.log('Datos del doctor logueado:', user);
     const doctorId = user?.sub || user?.id || user?._id || user?.userId;
 
     if (!doctorId) {
