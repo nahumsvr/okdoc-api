@@ -1,26 +1,47 @@
-import { Injectable } from '@nestjs/common';
-import { CreateTranscriptionDto } from './dto/create-transcription.dto';
-import { UpdateTranscriptionDto } from './dto/update-transcription.dto';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { SpeechClient } from '@google-cloud/speech';
 
 @Injectable()
 export class TranscriptionService {
-  create(createTranscriptionDto: CreateTranscriptionDto) {
-    return 'This action adds a new transcription';
+  private client: SpeechClient;
+
+  constructor() {
+    // Al instanciar SpeechClient, Google buscará automáticamente 
+    // la variable GOOGLE_APPLICATION_CREDENTIALS en tu archivo .env
+    this.client = new SpeechClient();
   }
 
-  findAll() {
-    return `This action returns all transcription`;
-  }
+  async transcribeAudio(audioBuffer: Buffer, encoding: string = 'WEBM_OPUS'): Promise<string> {
+    try {
+      const audio = {
+        content: audioBuffer.toString('base64'),
+      };
 
-  findOne(id: number) {
-    return `This action returns a #${id} transcription`;
-  }
+      const config: any = {
+        encoding: encoding as any,
+        languageCode: 'es-MX',
+      };
+      
+      // WEBM_OPUS requiere que se le especifique la frecuencia (comúnmente 48000Hz en la web)
+      if (encoding === 'WEBM_OPUS') {
+        config.sampleRateHertz = 48000;
+      }
 
-  update(id: number, updateTranscriptionDto: UpdateTranscriptionDto) {
-    return `This action updates a #${id} transcription`;
-  }
+      const request = {
+        audio: audio,
+        config: config,
+      };
 
-  remove(id: number) {
-    return `This action removes a #${id} transcription`;
+      const [response] = await this.client.recognize(request);
+      
+      const transcription = (response.results || [])
+        .map(result => result.alternatives?.[0]?.transcript || '')
+        .filter(transcript => transcript.length > 0)
+        .join('\\n');
+
+      return transcription;
+    } catch (error) {
+      throw new InternalServerErrorException('Error transcribiendo audio con GCP: ' + error.message);
+    }
   }
 }

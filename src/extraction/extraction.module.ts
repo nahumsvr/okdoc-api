@@ -5,5 +5,6 @@ import { ExtractionController } from './extraction.controller';
 @Module({
   controllers: [ExtractionController],
   providers: [ExtractionService],
+  exports: [ExtractionService],
 })
-export class ExtractionModule {}
+export class ExtractionModule { }
