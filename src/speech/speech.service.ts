@@ -22,7 +22,7 @@ export class SpeechService {
   async transcribeAudio(audioBase64: string, encoding: string = 'WEBM_OPUS'): Promise<string> {
     // ── MODO MOCK (hackathon sin credenciales GCP) ──────────────────────────
     if (this.mockMode) {
-      return '[mock] El paciente refiere dolor de cabeza intenso desde hace dos días, sin fiebre.';
+      return '[mock] El paciente tiene una fiebre altísima de 40 grados y mucho dolor de cuerpo.';
     }
 
     // ── MODO REAL ───────────────────────────────────────────────────────────

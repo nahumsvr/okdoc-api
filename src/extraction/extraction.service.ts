@@ -62,6 +62,7 @@ Actúa como un transcriptor médico de alta precisión. Tu tarea es extraer info
 
 Instrucciones de llenado:
 - Si la información no se menciona explícitamente o tienes dudas, pon null.
+- PRIORIDAD CRÍTICA: Si existe una contradicción entre la información etiquetada como [Voz] y la etiquetada como [Nota], dale prioridad absoluta a la información de [Voz].
 - Para campos de Opción Múltiple, selecciona solo una de las opciones dadas. Si el médico dice algo parecido pero no igual, normalízalo a la opción válida.
 - En Signos Vitales, extrae solo los números.
 - En Diagnóstico, intenta añadir el código CIE-10 si el médico menciona la enfermedad.

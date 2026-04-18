@@ -34,7 +34,13 @@ export class SpeechGateway implements OnGatewayDisconnect {
     this.sessions.delete(client.id);
   }
 
-  // Front manda chunk de audio en base64
+  private ensureSession(sessionId: string) {
+    if (!this.sessions.has(sessionId)) {
+      this.sessions.set(sessionId, []);
+    }
+  }
+
+  // Front manda chunk de audio en base64 cada 30s
   @SubscribeMessage('audio_chunk')
   async handleAudioChunk(
     @MessageBody() data: { sessionId: string; audio: string },
@@ -43,13 +49,28 @@ export class SpeechGateway implements OnGatewayDisconnect {
     try {
       const transcript = await this.speechService.transcribeAudio(data.audio);
 
-      if (!this.sessions.has(data.sessionId)) {
-        this.sessions.set(data.sessionId, []);
-      }
-      this.sessions.get(data.sessionId)!.push(transcript);
+      this.ensureSession(data.sessionId);
+      this.sessions.get(data.sessionId)!.push(`[Voz]: ${transcript}`);
 
       // Devuelve la transcripción parcial al front en tiempo real
-      client.emit('transcription_update', { text: transcript });
+      client.emit('transcription_update', { text: transcript, source: 'voice' });
+    } catch (error) {
+      client.emit('error', { message: error.message });
+    }
+  }
+
+  // Front manda una nota de texto manual
+  @SubscribeMessage('text_chunk')
+  async handleTextChunk(
+    @MessageBody() data: { sessionId: string; text: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      this.ensureSession(data.sessionId);
+      this.sessions.get(data.sessionId)!.push(`[Nota]: ${data.text}`);
+
+      // Confirmación al front
+      client.emit('text_received', { status: 'ok' });
     } catch (error) {
       client.emit('error', { message: error.message });
     }
@@ -65,25 +86,25 @@ export class SpeechGateway implements OnGatewayDisconnect {
       const chunks = this.sessions.get(data.sessionId) || [];
 
       if (chunks.length === 0) {
-        client.emit('error', { message: 'No hay transcripciones acumuladas' });
+        client.emit('error', { message: 'No hay información acumulada en esta sesión' });
         return;
       }
 
-      // Une todos los chunks en un solo texto
-      const fullTranscription = chunks.join(' ');
+      // Une todos los chunks (voz y texto) en un solo bloque
+      const fullContent = chunks.join('\n');
 
       // Limpia la sesión de memoria
       this.sessions.delete(data.sessionId);
 
-      // Extrae el formulario con Gemini
-      const formData = await this.extractionService.extractFromTranscription(fullTranscription);
+      // Extrae el formulario con Gemini usando el contenido unificado
+      const formData = await this.extractionService.extractFromTranscription(fullContent);
 
       // --- GUARDAR EN BASE DE DATOS ---
       
       // 1. Crear la consulta (Consultation)
       const consultation = new this.consultationModel({
         patientId: data.patientId,
-        doctorId: data.doctorId, // Asegúrate de que el front lo envíe
+        doctorId: data.doctorId,
         status: 'draft',
         motivoConsulta: formData?.motivoConsulta || '',
         sintomas: formData?.sintomas || '',
@@ -96,16 +117,16 @@ export class SpeechGateway implements OnGatewayDisconnect {
 
       const savedConsultation = await consultation.save();
 
-      // 2. Guardar el texto de la transcripción ligado a la consulta
+      // 2. Guardar el contenido final ligado a la consulta
       await this.transcriptionsService.saveFinalTranscription(
         savedConsultation._id.toString(),
-        fullTranscription
+        fullContent
       );
 
-      // Devuelve el formulario lleno al front
+      // Devuelve el resultado final al front
       client.emit('form_complete', {
         consultationId: savedConsultation._id,
-        transcription: fullTranscription,
+        transcription: fullContent,
         form: formData,
       });
     } catch (error) {
