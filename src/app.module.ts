@@ -6,10 +6,12 @@ import { AppService } from './app.service';
 import { PatientsModule } from './patients/patients.module';
 import { ConsultationsModule } from './consultations/consultations.module';
 import { TranscriptionsModule } from './transcriptions/transcriptions.module';
+import { SpeechModule } from './speech/speech.module';
 import { UsersModule } from './users/users.module';
 import { TranscriptionModule } from './transcription/transcription.module';
 import { ExtractionModule } from './extraction/extraction.module';
 import { AuthModule } from './auth/auth.module';
+import { ExtractionModule } from './extraction/extraction.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { AuthModule } from './auth/auth.module';
     TranscriptionModule,
     ExtractionModule,
     AuthModule,
+    ExtractionModule,
+    SpeechModule,
   ],
   controllers: [AppController],
   providers: [AppService],
