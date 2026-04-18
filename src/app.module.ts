@@ -8,10 +8,8 @@ import { ConsultationsModule } from './consultations/consultations.module';
 import { TranscriptionsModule } from './transcriptions/transcriptions.module';
 import { SpeechModule } from './speech/speech.module';
 import { UsersModule } from './users/users.module';
-import { TranscriptionModule } from './transcription/transcription.module';
 import { ExtractionModule } from './extraction/extraction.module';
 import { AuthModule } from './auth/auth.module';
-import { ExtractionModule } from './extraction/extraction.module';
 
 @Module({
   imports: [
@@ -23,10 +21,8 @@ import { ExtractionModule } from './extraction/extraction.module';
     ConsultationsModule,
     TranscriptionsModule,
     UsersModule,
-    TranscriptionModule,
     ExtractionModule,
     AuthModule,
-    ExtractionModule,
     SpeechModule,
   ],
   controllers: [AppController],
