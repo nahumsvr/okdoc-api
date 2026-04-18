@@ -8,7 +8,7 @@ import PDFDocument = require('pdfkit');
 export class ConsultationsService {
   constructor(
     @InjectModel(Consultation.name) private consultationModel: Model<ConsultationDocument>,
-  ) {}
+  ) { }
 
   async findAllByDoctor(doctorId: string) {
     return this.consultationModel
@@ -86,6 +86,13 @@ export class ConsultationsService {
 
     doc.fontSize(14).text('Observaciones:', { underline: true });
     doc.fontSize(12).text(consultation.observaciones || 'N/A');
+
+    if (consultation.formDataIA) {
+      doc.addPage();
+      doc.fontSize(16).text('Datos extraídos por IA', { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(10).text(JSON.stringify(consultation.formDataIA, null, 2));
+    }
 
     doc.end();
 
