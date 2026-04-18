@@ -9,9 +9,17 @@ export class ConsultationsService {
     @InjectModel(Consultation.name) private consultationModel: Model<ConsultationDocument>,
   ) {}
 
-  async findByPatient(patientId: string) {
+  async findAll() {
     return this.consultationModel
-      .find({ patientId })
+      .find()
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  async findByPatient(patientId?: string) {
+    const query = patientId ? { patientId } : {};
+    return this.consultationModel
+      .find(query)
       .sort({ createdAt: -1 })
       .exec();
   }

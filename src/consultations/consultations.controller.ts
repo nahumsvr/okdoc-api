@@ -6,7 +6,7 @@ export class ConsultationsController {
   constructor(private readonly consultationsService: ConsultationsService) {}
 
   @Get()
-  findByPatient(@Query('patientId') patientId: string) {
+  findAll(@Query('patientId') patientId?: string) {
     return this.consultationsService.findByPatient(patientId);
   }
 

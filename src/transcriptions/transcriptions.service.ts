@@ -28,4 +28,14 @@ export class TranscriptionsService {
       .findByIdAndUpdate(transcriptionId, { estado: 'processing' }, { new: true })
       .exec();
   }
+
+  async saveFinalTranscription(consultationId: string, textoCompleto: string) {
+    const newTranscription = new this.transcriptionModel({
+      consultationId,
+      textoTranscrito: textoCompleto,
+      estado: 'done',
+    });
+
+    return await newTranscription.save();
+  }
 }

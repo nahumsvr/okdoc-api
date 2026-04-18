@@ -7,8 +7,12 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { SpeechService } from './speech.service';
 import { ExtractionService } from '../extraction/extraction.service';
+import { Consultation } from '../consultations/consultation.schema';
+import { TranscriptionsService } from '../transcriptions/transcriptions.service';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class SpeechGateway implements OnGatewayDisconnect {
@@ -21,6 +25,9 @@ export class SpeechGateway implements OnGatewayDisconnect {
   constructor(
     private speechService: SpeechService,
     private extractionService: ExtractionService,
+    private transcriptionsService: TranscriptionsService,
+    @InjectModel(Consultation.name)
+    private consultationModel: Model<Consultation>,
   ) { }
 
   handleDisconnect(client: Socket) {
@@ -39,11 +46,10 @@ export class SpeechGateway implements OnGatewayDisconnect {
       if (!this.sessions.has(data.sessionId)) {
         this.sessions.set(data.sessionId, []);
       }
-      const chunks = this.sessions.get(data.sessionId)!;
-      chunks.push(transcript);
+      this.sessions.get(data.sessionId)!.push(transcript);
 
       // Devuelve la transcripción parcial al front en tiempo real
-      client.emit('transcript_partial', { text: transcript });
+      client.emit('transcription_update', { text: transcript });
     } catch (error) {
       client.emit('error', { message: error.message });
     }
@@ -52,7 +58,7 @@ export class SpeechGateway implements OnGatewayDisconnect {
   // Front manda "finish" cuando termina la consulta
   @SubscribeMessage('finish_session')
   async handleFinish(
-    @MessageBody() data: { sessionId: string },
+    @MessageBody() data: { sessionId: string; doctorId?: string; patientId?: string },
     @ConnectedSocket() client: Socket,
   ) {
     try {
@@ -72,8 +78,33 @@ export class SpeechGateway implements OnGatewayDisconnect {
       // Extrae el formulario con Gemini
       const formData = await this.extractionService.extractFromTranscription(fullTranscription);
 
+      // --- GUARDAR EN BASE DE DATOS ---
+      
+      // 1. Crear la consulta (Consultation)
+      const consultation = new this.consultationModel({
+        patientId: data.patientId,
+        doctorId: data.doctorId, // Asegúrate de que el front lo envíe
+        status: 'draft',
+        motivoConsulta: formData?.motivoConsulta || '',
+        sintomas: formData?.sintomas || '',
+        diagnostico: formData?.diagnostico || '',
+        tratamiento: formData?.tratamiento || '',
+        medicamentos: formData?.medicamentos || '',
+        observaciones: formData?.observaciones || '',
+        camposGeneradosPorIA: Object.keys(formData || {}),
+      });
+
+      const savedConsultation = await consultation.save();
+
+      // 2. Guardar el texto de la transcripción ligado a la consulta
+      await this.transcriptionsService.saveFinalTranscription(
+        savedConsultation._id.toString(),
+        fullTranscription
+      );
+
       // Devuelve el formulario lleno al front
       client.emit('form_complete', {
+        consultationId: savedConsultation._id,
         transcription: fullTranscription,
         form: formData,
       });

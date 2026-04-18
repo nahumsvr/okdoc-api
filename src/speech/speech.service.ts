@@ -10,7 +10,6 @@ export class SpeechService {
     this.mockMode = process.env.MOCK_TRANSCRIPTION === 'true';
 
     if (!this.mockMode) {
-      // Google buscará GOOGLE_APPLICATION_CREDENTIALS automáticamente
       this.client = new SpeechClient();
     }
   }
