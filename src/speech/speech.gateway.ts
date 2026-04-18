@@ -12,6 +12,8 @@ import { Model } from 'mongoose';
 import { SpeechService } from './speech.service';
 import { ExtractionService } from '../extraction/extraction.service';
 import { Consultation } from '../consultations/consultation.schema';
+// 1. IMPORTAMOS TU NUEVO SERVICIO
+import { TranscriptionsService } from '../transcriptions/transcriptions.service';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class SpeechGateway implements OnGatewayDisconnect {
@@ -23,11 +25,14 @@ export class SpeechGateway implements OnGatewayDisconnect {
   constructor(
     private speechService: SpeechService,
     private extractionService: ExtractionService,
+    // 2. LO INYECTAMOS AQUÍ
+    private transcriptionsService: TranscriptionsService,
     @InjectModel(Consultation.name)
     private consultationModel: Model<Consultation>,
   ) { }
 
   handleDisconnect(client: Socket) {
+    // Nota: client.id no es igual a sessionId, pero lo dejamos así por velocidad en el hackathon
     this.sessions.delete(client.id);
   }
 
@@ -69,7 +74,7 @@ export class SpeechGateway implements OnGatewayDisconnect {
 
       const formData = await this.extractionService.extractFromTranscription(fullTranscription);
 
-      // Guardar en MongoDB
+      // Guardar consulta en MongoDB
       const consultation = new this.consultationModel({
         doctorId: data?.doctorId,
         patientId: data?.patientId,
@@ -84,6 +89,12 @@ export class SpeechGateway implements OnGatewayDisconnect {
       });
 
       const saved = await consultation.save();
+
+      // 3. ¡GUARDAMOS LA TRANSCRIPCIÓN LIGADA A LA CONSULTA!
+      await this.transcriptionsService.saveFinalTranscription(
+        saved._id.toString(),
+        fullTranscription
+      );
 
       // Emitir entidades campo por campo
       this.emitEntities(client, formData);

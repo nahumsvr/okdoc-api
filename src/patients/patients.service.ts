@@ -33,8 +33,13 @@ export class PatientsService {
     return patient;
   }
 
-  async create(data: Partial<Patient>) {
-    const patient = new this.patientModel(data);
+  async create(doctorId: string, data: Partial<Patient>) {
+    const patientData = {
+      ...data,
+      doctorId: doctorId
+    };
+
+    const patient = new this.patientModel(patientData);
     return patient.save();
   }
 }

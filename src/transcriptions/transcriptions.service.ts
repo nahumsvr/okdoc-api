@@ -7,7 +7,7 @@ import { Transcription, TranscriptionDocument } from './transcription.schema';
 export class TranscriptionsService {
   constructor(
     @InjectModel(Transcription.name) private transcriptionModel: Model<TranscriptionDocument>,
-  ) {}
+  ) { }
 
   async findOne(id: string) {
     return this.transcriptionModel.findById(id).exec();
@@ -27,5 +27,16 @@ export class TranscriptionsService {
     return this.transcriptionModel
       .findByIdAndUpdate(transcriptionId, { estado: 'processing' }, { new: true })
       .exec();
+  }
+
+  async saveFinalTranscription(consultationId: string, textoCompleto: string) {
+    const newTranscription = new this.transcriptionModel({
+      consultationId,
+      textoTranscrito: textoCompleto,
+      estado: 'done',
+      // audioUrl: Aquí podrías guardar la URL de un bucket de GCP si tuvieras tiempo
+    });
+
+    return await newTranscription.save();
   }
 }
