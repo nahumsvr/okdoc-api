@@ -43,7 +43,7 @@ export class SpeechGateway implements OnGatewayDisconnect {
       chunks.push(transcript);
 
       // Devuelve la transcripción parcial al front en tiempo real
-      client.emit('transcript_partial', { text: transcript });
+      client.emit('transcription_update', { text: transcript });
     } catch (error) {
       client.emit('error', { message: error.message });
     }
