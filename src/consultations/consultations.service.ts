@@ -36,4 +36,18 @@ export class ConsultationsService {
       .findByIdAndUpdate(id, { status }, { new: true })
       .exec();
   }
+
+  async saveExtractionResult(
+    patientId: string,
+    extractedData: Record<string, any>,
+    source: 'transcription' | 'document',
+  ) {
+    const consultation = new this.consultationModel({
+      patientId,
+      status: 'draft',
+      extractedData,
+      extractionSource: source,
+    });
+    return consultation.save();
+  }
 }

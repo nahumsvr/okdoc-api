@@ -1,13 +1,17 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { ConsultationsService } from '../consultations/consultations.service';
 
 @Injectable()
 export class ExtractionService {
   private genAI: GoogleGenerativeAI;
   private model: any;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private consultationsService: ConsultationsService,
+  ) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY') || '';
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
@@ -52,7 +56,7 @@ export class ExtractionService {
 }`;
 
   // PROBLEMA 1: Extrae datos de transcripción de consulta médica
-  async extractFromTranscription(transcriptionText: string) {
+  async extractFromTranscription(transcriptionText: string, patientId?: string) {
     const prompt = `
 Actúa como un transcriptor médico de alta precisión. Tu tarea es extraer información de una conversación y devolverla únicamente en formato JSON siguiendo el esquema proporcionado.
 
@@ -76,7 +80,13 @@ Responde ÚNICAMENTE con el JSON válido, sin texto adicional, sin backticks, si
       const result = await this.model.generateContent(prompt);
       const text = result.response.text().trim();
       const clean = text.replace(/```json|```/g, '').trim();
-      return JSON.parse(clean);
+      const extracted = JSON.parse(clean);
+
+      if (patientId) {
+        await this.consultationsService.saveExtractionResult(patientId, extracted, 'transcription');
+      }
+
+      return extracted;
     } catch (error) {
       throw new BadRequestException(
         'Error al procesar la transcripción: ' + error.message,
@@ -85,7 +95,7 @@ Responde ÚNICAMENTE con el JSON válido, sin texto adicional, sin backticks, si
   }
 
   // PROBLEMA 2: Extrae datos de documento de identidad (INE, CURP, Acta)
-  async extractFromDocument(base64Image: string, mimeType: string = 'image/jpeg') {
+  async extractFromDocument(base64Image: string, mimeType: string = 'image/jpeg', patientId?: string) {
     const prompt = `
 Eres un asistente especializado en extraer información de documentos oficiales mexicanos (INE, CURP, Acta de Nacimiento).
 Extrae los datos visibles y llénalos en el siguiente esquema JSON.
@@ -115,7 +125,13 @@ Responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin backticks:
       ]);
       const text = result.response.text().trim();
       const clean = text.replace(/```json|```/g, '').trim();
-      return JSON.parse(clean);
+      const extracted = JSON.parse(clean);
+
+      if (patientId) {
+        await this.consultationsService.saveExtractionResult(patientId, extracted, 'document');
+      }
+
+      return extracted;
     } catch (error) {
       throw new BadRequestException(
         'Error al procesar el documento: ' + error.message,

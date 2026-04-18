@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
 export type ConsultationDocument = HydratedDocument<Consultation>;
 
@@ -34,6 +34,14 @@ export class Consultation {
 
   @Prop()
   proximaCita: Date;
+
+  // JSON completo extraído por IA (transcripción o documento)
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  extractedData: Record<string, any>;
+
+  // Fuente de la extracción
+  @Prop({ enum: ['transcription', 'document'], default: 'transcription' })
+  extractionSource: 'transcription' | 'document';
 
   // Auditoría de campos generados por IA
   @Prop({ type: [String], default: [] })
