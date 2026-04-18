@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -41,16 +45,33 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.contrasena);
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      user.contrasena,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const payload = { sub: user._id, email: user.correo, name: user.nombreCompleto };
+    const payload = {
+      sub: user._id,
+      email: user.correo,
+      name: user.nombreCompleto,
+    };
 
     return {
-      access_token: await this.jwtService.signAsync(payload),
-      message: 'Inicio de sesión exitoso',
+      correo: user.correo,
+      jwt: await this.jwtService.signAsync(payload),
     };
+  }
+
+  async getProfile(email: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+
+    const userObj = user.toObject();
+    return userObj;
   }
 }

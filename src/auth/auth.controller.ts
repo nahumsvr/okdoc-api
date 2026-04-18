@@ -30,9 +30,6 @@ export class AuthController {
   @Auth()
   @Get('profile')
   getProfile(@CurrentUser() user: any) {
-    return {
-      name: user.name,
-      email: user.email,
-    };
+    return this.authService.getProfile(user.email);
   }
 }
