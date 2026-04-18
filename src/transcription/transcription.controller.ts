@@ -24,7 +24,9 @@ export class TranscriptionController {
     }
 
     // 1. Convertir audio a texto usando Google Cloud Speech
-    const transcriptionText = await this.transcriptionService.transcribeAudio(file.buffer, encoding);
+    // Multer entrega un Buffer → lo convertimos a base64 igual que hace el WebSocket gateway
+    const audioBase64 = file.buffer.toString('base64');
+    const transcriptionText = await this.transcriptionService.transcribeAudio(audioBase64, encoding);
 
     if (!transcriptionText || transcriptionText.trim() === '') {
       throw new BadRequestException('No se detectó habla o no se pudo transcribir el audio');
