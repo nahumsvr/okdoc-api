@@ -7,27 +7,30 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { SpeechService } from './speech.service';
 import { ExtractionService } from '../extraction/extraction.service';
+import { Consultation } from '../consultations/consultation.schema';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class SpeechGateway implements OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  // sessionId → array de transcripciones parciales
   private sessions = new Map<string, string[]>();
 
   constructor(
     private speechService: SpeechService,
     private extractionService: ExtractionService,
+    @InjectModel(Consultation.name)
+    private consultationModel: Model<Consultation>,
   ) { }
 
   handleDisconnect(client: Socket) {
     this.sessions.delete(client.id);
   }
 
-  // Front manda chunk de audio en base64
   @SubscribeMessage('audio_chunk')
   async handleAudioChunk(
     @MessageBody() data: { sessionId: string; audio: string },
@@ -39,20 +42,18 @@ export class SpeechGateway implements OnGatewayDisconnect {
       if (!this.sessions.has(data.sessionId)) {
         this.sessions.set(data.sessionId, []);
       }
-      const chunks = this.sessions.get(data.sessionId)!;
-      chunks.push(transcript);
+      this.sessions.get(data.sessionId)!.push(transcript);
 
-      // Devuelve la transcripción parcial al front en tiempo real
-      client.emit('transcript_partial', { text: transcript });
+      client.emit('transcription_update', { text: transcript });
+
     } catch (error) {
       client.emit('error', { message: error.message });
     }
   }
 
-  // Front manda "finish" cuando termina la consulta
   @SubscribeMessage('finish_session')
   async handleFinish(
-    @MessageBody() data: { sessionId: string },
+    @MessageBody() data: { sessionId: string; doctorId?: string; patientId?: string },
     @ConnectedSocket() client: Socket,
   ) {
     try {
@@ -63,22 +64,58 @@ export class SpeechGateway implements OnGatewayDisconnect {
         return;
       }
 
-      // Une todos los chunks en un solo texto
       const fullTranscription = chunks.join(' ');
-
-      // Limpia la sesión de memoria
       this.sessions.delete(data.sessionId);
 
-      // Extrae el formulario con Gemini
       const formData = await this.extractionService.extractFromTranscription(fullTranscription);
 
-      // Devuelve el formulario lleno al front
+      // Guardar en MongoDB
+      const consultation = new this.consultationModel({
+        doctorId: data?.doctorId,
+        patientId: data?.patientId,
+        estado: 'DRAFT',
+        motivoConsulta: formData?.historia_clinica?.padecimiento_actual,
+        diagnostico: formData?.historia_clinica?.diagnostico_cie10,
+        tratamiento: formData?.historia_clinica?.tratamiento_cpt,
+        formDataIA: formData,
+        camposGeneradosPorIA: Object.keys(formData).flatMap((section) =>
+          Object.keys(formData[section] || {}),
+        ),
+      });
+
+      const saved = await consultation.save();
+
+      // Emitir entidades campo por campo
+      this.emitEntities(client, formData);
+
+      // Emitir formulario completo
       client.emit('form_complete', {
+        consultationId: saved._id,
         transcription: fullTranscription,
         form: formData,
       });
+
     } catch (error) {
       client.emit('error', { message: error.message });
     }
+  }
+
+  private emitEntities(client: Socket, formData: any) {
+    const flatten = (obj: any, prefix = '') => {
+      for (const key of Object.keys(obj)) {
+        const value = obj[key];
+        const fieldName = prefix ? `${prefix}.${key}` : key;
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          flatten(value, fieldName);
+        } else if (value !== null && value !== undefined) {
+          client.emit('entity_extracted', {
+            field: fieldName,
+            value: value,
+            confidence: 0.95,
+          });
+        }
+      }
+    };
+    flatten(formData);
   }
 }
