@@ -36,7 +36,7 @@ export class ConsultationsService {
     const consultation = new this.consultationModel({
       ...data,
       doctorId: doctorId,
-      estado: data.estado || 'PENDIENTE',
+      estado: data.estado || 'DRAFT',
     });
     return consultation.save();
   }
@@ -46,7 +46,7 @@ export class ConsultationsService {
       id,
       {
         formDataIA: formDataIA,
-        estado: 'COMPLETADO'
+        estado: 'APPROVED'
       },
       { new: true }
     ).exec();
