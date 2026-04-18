@@ -14,7 +14,7 @@ export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
-  ) {}
+  ) { }
 
   async register(registerDto: RegisterDto) {
     const existingUser = await this.usersService.findByEmail(registerDto.email);
@@ -100,8 +100,7 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Usuario no encontrado');
     }
-
-    const userObj = user.toObject();
-    return userObj;
+    const { contrasena, ...safeUser } = user.toObject();
+    return safeUser;
   }
 }
