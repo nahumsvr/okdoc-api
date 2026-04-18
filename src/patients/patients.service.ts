@@ -7,7 +7,7 @@ import { Patient, PatientDocument } from './patient.schema';
 export class PatientsService {
   constructor(
     @InjectModel(Patient.name) private patientModel: Model<PatientDocument>,
-  ) {}
+  ) { }
 
   async findAll(page = 1, limit = 10) {
     const skip = (page - 1) * limit;
@@ -29,6 +29,20 @@ export class PatientsService {
 
   async findOne(id: string) {
     return this.patientModel.findById(id).exec();
+  }
+
+  async preCheckin(id: string, data: {
+    motivoVisita?: string;
+    nivelDolor?: number;
+    ubicacionDolor?: string;
+    medicamentosActuales?: string;
+    alergias?: string;
+  }) {
+    return this.patientModel.findByIdAndUpdate(
+      id,
+      { preCheckin: { ...data, completadoEn: new Date() } },
+      { new: true },
+    ).exec();
   }
 
   async create(data: { nombre: string; fechaNacimiento: Date }) {

@@ -34,6 +34,26 @@ export class Patient {
 
   @Prop({ type: [String], default: [] })
   enfermedadesCronicas: string[];
+
+  @Prop({
+    type: {
+      motivoVisita: String,
+      nivelDolor: Number,
+      ubicacionDolor: String,
+      medicamentosActuales: String,
+      alergias: String,
+      completadoEn: Date,
+    },
+    default: null,
+  })
+  preCheckin: {
+    motivoVisita?: string;
+    nivelDolor?: number;
+    ubicacionDolor?: string;
+    medicamentosActuales?: string;
+    alergias?: string;
+    completadoEn?: Date;
+  } | null;
 }
 
 export const PatientSchema = SchemaFactory.createForClass(Patient);

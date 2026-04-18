@@ -3,7 +3,7 @@ import { PatientsService } from './patients.service';
 
 @Controller('patients')
 export class PatientsController {
-  constructor(private readonly patientsService: PatientsService) {}
+  constructor(private readonly patientsService: PatientsService) { }
 
   @Get()
   findAll(@Query('page') page?: number, @Query('limit') limit?: number) {
@@ -13,6 +13,11 @@ export class PatientsController {
   @Get('search')
   search(@Query('q') q: string) {
     return this.patientsService.search(q);
+  }
+
+  @Post(':id/pre-checkin')
+  preCheckin(@Param('id') id: string, @Body() body: any) {
+    return this.patientsService.preCheckin(id, body);
   }
 
   @Get(':id')
