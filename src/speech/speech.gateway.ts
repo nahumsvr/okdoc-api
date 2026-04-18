@@ -13,6 +13,7 @@ import { SpeechService } from './speech.service';
 import { ExtractionService } from '../extraction/extraction.service';
 import { Consultation } from '../consultations/consultation.schema';
 import { TranscriptionsService } from '../transcriptions/transcriptions.service';
+import { log } from 'console';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class SpeechGateway implements OnGatewayDisconnect {
@@ -28,7 +29,7 @@ export class SpeechGateway implements OnGatewayDisconnect {
     private transcriptionsService: TranscriptionsService,
     @InjectModel(Consultation.name)
     private consultationModel: Model<Consultation>,
-  ) { }
+  ) {}
 
   handleDisconnect(client: Socket) {
     this.sessions.delete(client.id);
@@ -47,13 +48,19 @@ export class SpeechGateway implements OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     try {
+      console.log(data.sessionId);
       const transcript = await this.speechService.transcribeAudio(data.audio);
+      console.log(transcript);
 
       this.ensureSession(data.sessionId);
       this.sessions.get(data.sessionId)!.push(`[Voz]: ${transcript}`);
 
       // Devuelve la transcripción parcial al front en tiempo real
-      client.emit('transcription_update', { text: transcript, source: 'voice' });
+      console.log({ text: transcript, source: 'voice' });
+      client.emit('transcription_update', {
+        text: transcript,
+        source: 'voice',
+      });
     } catch (error) {
       client.emit('error', { message: error.message });
     }
@@ -79,14 +86,17 @@ export class SpeechGateway implements OnGatewayDisconnect {
   // Front manda "finish" cuando termina la consulta
   @SubscribeMessage('finish_session')
   async handleFinish(
-    @MessageBody() data: { sessionId: string; doctorId?: string; patientId?: string },
+    @MessageBody()
+    data: { sessionId: string; doctorId?: string; patientId?: string },
     @ConnectedSocket() client: Socket,
   ) {
     try {
       const chunks = this.sessions.get(data.sessionId) || [];
 
       if (chunks.length === 0) {
-        client.emit('error', { message: 'No hay información acumulada en esta sesión' });
+        client.emit('error', {
+          message: 'No hay información acumulada en esta sesión',
+        });
         return;
       }
 
@@ -97,10 +107,11 @@ export class SpeechGateway implements OnGatewayDisconnect {
       this.sessions.delete(data.sessionId);
 
       // Extrae el formulario con Gemini usando el contenido unificado
-      const formData = await this.extractionService.extractFromTranscription(fullContent);
+      const formData =
+        await this.extractionService.extractFromTranscription(fullContent);
 
       // --- GUARDAR EN BASE DE DATOS ---
-      
+
       // 1. Crear la consulta (Consultation)
       const consultation = new this.consultationModel({
         patientId: data.patientId,
@@ -120,7 +131,7 @@ export class SpeechGateway implements OnGatewayDisconnect {
       // 2. Guardar el contenido final ligado a la consulta
       await this.transcriptionsService.saveFinalTranscription(
         savedConsultation._id.toString(),
-        fullContent
+        fullContent,
       );
 
       // Devuelve el resultado final al front
