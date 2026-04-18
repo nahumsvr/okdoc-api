@@ -21,7 +21,15 @@ export class PatientsController {
   }
 
   @Post()
-  create(@Body() body: { nombre: string; fechaNacimiento: Date }) {
+  create(
+    @Body()
+    body: {
+      nombre: string;
+      fechaNacimiento: Date;
+      genero: 'h' | 'm' | 'o';
+      telefono?: string;
+    },
+  ) {
     return this.patientsService.create(body);
   }
 }
