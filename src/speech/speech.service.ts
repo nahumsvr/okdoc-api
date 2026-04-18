@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { SpeechClient } from '@google-cloud/speech';
 
 @Injectable()
-export class TranscriptionService {
+export class SpeechService {
   private client: SpeechClient;
   private readonly mockMode: boolean;
 
@@ -39,7 +39,7 @@ export class TranscriptionService {
       }
 
       const request = {
-        audio: { content: audioBase64 },  // ya llega en base64 desde el frontend
+        audio: { content: audioBase64 }, // ya llega en base64 desde el frontend
         config,
       };
 

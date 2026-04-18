@@ -1,12 +1,12 @@
 import { Controller, Post, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { TranscriptionService } from './transcription.service';
+import { SpeechService } from './speech.service';
 import { ExtractionService } from '../extraction/extraction.service';
 
-@Controller('transcription')
-export class TranscriptionController {
+@Controller('speech')
+export class SpeechController {
   constructor(
-    private readonly transcriptionService: TranscriptionService,
+    private readonly speechService: SpeechService,
     private readonly extractionService: ExtractionService,
   ) {}
 
@@ -23,16 +23,15 @@ export class TranscriptionController {
       encoding = 'MP3';
     }
 
-    // 1. Convertir audio a texto usando Google Cloud Speech
     // Multer entrega un Buffer → lo convertimos a base64 igual que hace el WebSocket gateway
     const audioBase64 = file.buffer.toString('base64');
-    const transcriptionText = await this.transcriptionService.transcribeAudio(audioBase64, encoding);
+    const transcriptionText = await this.speechService.transcribeAudio(audioBase64, encoding);
 
     if (!transcriptionText || transcriptionText.trim() === '') {
       throw new BadRequestException('No se detectó habla o no se pudo transcribir el audio');
     }
 
-    // 2. Extraer datos estructurados con Gemini
+    // Extraer datos estructurados con Gemini
     const structuredData = await this.extractionService.extractFromTranscription(transcriptionText);
 
     return {

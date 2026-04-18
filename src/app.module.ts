@@ -6,6 +6,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PatientsModule } from './patients/patients.module';
 import { ConsultationsModule } from './consultations/consultations.module';
 import { TranscriptionsModule } from './transcriptions/transcriptions.module';
+import { SpeechModule } from './speech/speech.module';
 import { UsersModule } from './users/users.module';
 import { ExtractionModule } from './extraction/extraction.module';
 
@@ -18,6 +19,7 @@ import { ExtractionModule } from './extraction/extraction.module';
     TranscriptionsModule,
     UsersModule,
     ExtractionModule,
+    SpeechModule,
   ],
   controllers: [AppController],
   providers: [AppService],
