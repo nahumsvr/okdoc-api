@@ -32,6 +32,7 @@ export class PatientsService {
   }
 
   async preCheckin(id: string, data: {
+    nombrePaciente?: string;
     motivoVisita?: string;
     nivelDolor?: number;
     ubicacionDolor?: string;

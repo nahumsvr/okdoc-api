@@ -37,6 +37,7 @@ export class Patient {
 
   @Prop({
     type: {
+      nombrePaciente: String,
       motivoVisita: String,
       nivelDolor: Number,
       ubicacionDolor: String,
@@ -47,6 +48,7 @@ export class Patient {
     default: null,
   })
   preCheckin: {
+    nombrePaciente?: string,
     motivoVisita?: string;
     nivelDolor?: number;
     ubicacionDolor?: string;
